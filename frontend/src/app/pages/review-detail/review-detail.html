@@ -1,0 +1,317 @@
+@if (loading()) {
+  <div class="space-y-3" aria-hidden="true">
+    <div class="h-16 animate-pulse rounded-lg bg-white"></div>
+    <div class="h-32 animate-pulse rounded-lg bg-white"></div>
+    <div class="h-48 animate-pulse rounded-lg bg-white"></div>
+  </div>
+} @else if (error() && !review()) {
+  <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-4" role="alert">
+    <h1 class="text-lg font-semibold text-red-950">Review unavailable</h1>
+    <p class="mt-2 text-sm text-red-900">{{ error() }}</p>
+    <a routerLink="/history" class="mt-4 inline-flex text-sm font-medium text-red-950 underline">Back to history</a>
+  </div>
+} @else if (review(); as review) {
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+      <div class="min-w-0">
+        <p class="text-xs font-medium uppercase tracking-wide text-stone-500">Review</p>
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-stone-950">{{ review.title }}</h1>
+        <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-500">
+          <span class="rounded-full px-2 py-0.5 font-medium ring-1 ring-inset" [class]="statusBadgeClass(review.status)">
+            {{ statusLabel(review.status) }}
+          </span>
+          <span>{{ sourceLabel(review) }}</span>
+          <span>{{ review.created_at | date: 'medium' }}</span>
+          @if (review.provider || review.model) {
+            <span>{{ review.provider }} / {{ review.model }}</span>
+          }
+        </div>
+        @if (review.metadata.pull_request; as pullRequest) {
+          <p class="mt-2 text-sm">
+            <a class="font-medium text-blue-800 hover:text-blue-950" [href]="pullRequest.url" target="_blank" rel="noopener noreferrer">
+              {{ pullRequest.owner }}/{{ pullRequest.repo }}#{{ pullRequest.number }}
+            </a>
+            @if (pullRequest.base_ref) {
+              <span class="text-stone-500"> into {{ pullRequest.base_ref }}</span>
+            }
+            @if (pullRequest.head_sha) {
+              <span class="text-stone-500"> · {{ pullRequest.head_sha.slice(0, 7) }}</span>
+            }
+          </p>
+        }
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a
+          routerLink="/reviews/new"
+          class="inline-flex min-h-10 items-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800"
+        >
+          New review
+        </a>
+        <button
+          type="button"
+          class="inline-flex min-h-10 items-center rounded-md border border-stone-300 bg-white px-3 text-sm font-medium"
+          (click)="download('markdown')"
+        >
+          Export Markdown
+        </button>
+        <button
+          type="button"
+          class="inline-flex min-h-10 items-center rounded-md border border-stone-300 bg-white px-3 text-sm font-medium"
+          (click)="download('json')"
+        >
+          Export JSON
+        </button>
+      </div>
+    </div>
+
+    @if (exportError()) {
+      <p class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900" role="alert">{{ exportError() }}</p>
+    }
+    @if (error()) {
+      <p class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900" role="alert">{{ error() }}</p>
+    }
+
+    @if (review.status === 'failed') {
+      <section class="rounded-lg border border-red-200 bg-red-50 px-4 py-4" role="alert">
+        <h2 class="text-base font-semibold text-red-950">This review did not finish</h2>
+        <p class="mt-2 text-sm text-red-900">{{ review.error_message || 'The analysis failed before findings could be stored.' }}</p>
+        <p class="mt-2 text-sm text-red-900">No findings were invented to fill this page. Adjust the diff or the provider configuration and start a new review.</p>
+      </section>
+    } @else if (review.status === 'processing') {
+      <section class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4" role="status">
+        <h2 class="text-base font-semibold text-amber-950">This review is still marked in progress</h2>
+        <p class="mt-2 text-sm text-amber-950">If the server restarted, the record will be marked failed on the next startup. Refresh after the original request finishes.</p>
+      </section>
+    }
+
+    @if (review.summary) {
+      <section class="rounded-lg border border-stone-200 bg-white px-4 py-4">
+        <h2 class="text-sm font-semibold text-stone-900">Summary</h2>
+        <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-stone-700">{{ review.summary }}</p>
+      </section>
+    }
+
+    @if (review.context_limitations) {
+      <section class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4">
+        <h2 class="text-sm font-semibold text-amber-950">Context limitations</h2>
+        <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-amber-950">{{ review.context_limitations }}</p>
+      </section>
+    }
+
+    @if (review.findings.length) {
+      <section aria-label="Finding counts" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        @for (item of severities; track item) {
+          <button
+            type="button"
+            class="rounded-lg border bg-white px-3 py-3 text-left"
+            [class.border-blue-700]="severity() === item"
+            [class.border-stone-200]="severity() !== item"
+            [attr.aria-pressed]="severity() === item"
+            (click)="setSeverity(item)"
+          >
+            <span class="block text-xs font-medium" [class]="severity() === item ? 'text-blue-800' : 'text-stone-500'">
+              {{ severityLabel(item) }}
+            </span>
+            <span class="mt-1 block text-2xl font-semibold">{{ severityTotals()[item] }}</span>
+          </button>
+        }
+      </section>
+
+      <section class="rounded-lg border border-stone-200 bg-white px-4 py-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label for="category-filter" class="block text-xs font-medium text-stone-600">Category</label>
+              <select
+                id="category-filter"
+                class="mt-1 w-full rounded-md border border-stone-300 bg-white px-2 py-2 text-sm"
+                [value]="category()"
+                (change)="category.set($any($event.target).value)"
+              >
+                <option value="all">All categories</option>
+                @for (item of categories(); track item) {
+                  <option [value]="item">{{ categoryLabel(item) }}</option>
+                }
+              </select>
+            </div>
+            <div>
+              <label for="file-filter" class="block text-xs font-medium text-stone-600">File</label>
+              <select
+                id="file-filter"
+                class="mt-1 w-full rounded-md border border-stone-300 bg-white px-2 py-2 text-sm"
+                [value]="file()"
+                (change)="file.set($any($event.target).value)"
+              >
+                <option value="all">All files</option>
+                @for (item of files(); track item) {
+                  <option [value]="item">{{ item }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex rounded-md border border-stone-300 p-1" role="group" aria-label="Group findings">
+              <button
+                type="button"
+                class="rounded px-3 py-1.5 text-sm"
+                [class.bg-stone-950]="groupBy() === 'severity'"
+                [class.text-white]="groupBy() === 'severity'"
+                [attr.aria-pressed]="groupBy() === 'severity'"
+                (click)="groupBy.set('severity')"
+              >
+                By severity
+              </button>
+              <button
+                type="button"
+                class="rounded px-3 py-1.5 text-sm"
+                [class.bg-stone-950]="groupBy() === 'category'"
+                [class.text-white]="groupBy() === 'category'"
+                [attr.aria-pressed]="groupBy() === 'category'"
+                (click)="groupBy.set('category')"
+              >
+                By category
+              </button>
+            </div>
+            @if (filtersActive()) {
+              <button type="button" class="text-sm font-medium text-blue-800" (click)="clearFilters()">Clear filters</button>
+            }
+          </div>
+        </div>
+      </section>
+
+      @if (copyError()) {
+        <p class="text-sm text-red-800" role="alert">{{ copyError() }}</p>
+      }
+
+      @if (filtered().length === 0) {
+        <p class="rounded-lg border border-dashed border-stone-300 bg-white px-4 py-8 text-center text-sm text-stone-600">
+          No findings match these filters.
+          <button type="button" class="ml-1 font-medium text-blue-800" (click)="clearFilters()">Clear filters</button>
+        </p>
+      } @else {
+        <div class="space-y-8">
+          @for (group of groups(); track group.key) {
+            <section>
+              <h2 class="text-sm font-semibold text-stone-900">{{ group.label }} · {{ group.items.length }}</h2>
+              <div class="mt-3 space-y-3">
+                @for (finding of group.items; track finding.id) {
+                  <article class="rounded-lg border border-stone-200 border-l-4 bg-white p-4 {{ severityAccentClass(finding.severity) }}">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset" [class]="severityBadgeClass(finding.severity)">
+                        {{ severityLabel(finding.severity) }}
+                      </span>
+                      <span class="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-700">
+                        {{ finding.kind === 'suggestion' ? 'Suggestion' : 'Finding' }}
+                      </span>
+                      <span class="text-xs text-stone-500">{{ categoryLabel(finding.category) }}</span>
+                      <span class="text-xs text-stone-500">Confidence {{ confidence(finding) }}</span>
+                      @if (finding.insufficient_context) {
+                        <span class="text-xs font-medium text-amber-800">Limited context</span>
+                      }
+                    </div>
+                    <h3 class="mt-3 text-base font-semibold text-stone-950">{{ finding.title }}</h3>
+                    <p class="mt-1 font-mono text-xs text-stone-600">{{ lineReference(finding) }}</p>
+                    <p class="mt-3 whitespace-pre-wrap text-sm leading-6 text-stone-700">{{ finding.explanation }}</p>
+                    <div class="mt-4">
+                      <h4 class="text-xs font-semibold uppercase tracking-wide text-stone-500">Recommended fix</h4>
+                      <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-stone-800">{{ finding.recommended_fix }}</p>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        class="inline-flex min-h-10 items-center rounded-md border border-stone-300 px-3 text-sm"
+                        (click)="copy(finding)"
+                      >
+                        {{ copiedId() === finding.id ? 'Copied' : 'Copy details' }}
+                      </button>
+                      @if (finding.code_snippet || finding.suggested_patch) {
+                        <button
+                          type="button"
+                          class="inline-flex min-h-10 items-center rounded-md border border-stone-300 px-3 text-sm"
+                          [attr.aria-expanded]="isOpen(finding.id)"
+                          (click)="toggle(finding.id)"
+                        >
+                          {{ isOpen(finding.id) ? 'Hide code' : 'Show code' }}
+                        </button>
+                      }
+                    </div>
+                    @if (isOpen(finding.id)) {
+                      <div class="mt-4 space-y-4">
+                        @if (finding.code_snippet) {
+                          <div>
+                            <h4 class="text-xs font-semibold uppercase tracking-wide text-stone-500">Snippet</h4>
+                            <pre class="mt-2 overflow-x-auto rounded-md bg-stone-950 p-3 text-xs leading-5 text-stone-100"><code>{{ finding.code_snippet }}</code></pre>
+                          </div>
+                        }
+                        @if (finding.suggested_patch) {
+                          <div>
+                            <h4 class="text-xs font-semibold uppercase tracking-wide text-stone-500">Suggested patch</h4>
+                            <pre class="mt-2 overflow-x-auto rounded-md bg-stone-950 p-3 text-xs leading-5 text-stone-100"><code>{{ finding.suggested_patch }}</code></pre>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </article>
+                }
+              </div>
+            </section>
+          }
+        </div>
+      }
+    } @else if (review.status === 'completed') {
+      <section class="rounded-lg border border-stone-200 bg-white px-4 py-5">
+        <h2 class="text-base font-semibold text-stone-950">No findings were returned</h2>
+        <p class="mt-2 text-sm leading-6 text-stone-700">
+          The model did not report findings for this diff. That does not mean the change is safe, correct, or ready to ship. Read the summary, the context limitations, and the diff itself before relying on this result.
+        </p>
+      </section>
+    }
+
+    @if (review.metadata.files.length) {
+      <section class="rounded-lg border border-stone-200 bg-white px-4 py-4">
+        <h2 class="text-sm font-semibold text-stone-900">Files in this review</h2>
+        <ul class="mt-3 divide-y divide-stone-200">
+          @for (file of review.metadata.files; track file.path) {
+            <li class="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <span class="font-mono text-xs text-stone-800">{{ file.path }}</span>
+              <span class="text-xs text-stone-500">
+                {{ file.status }} · +{{ file.additions }} / -{{ file.deletions }}
+                @if (file.binary) {
+                  <span> · binary</span>
+                }
+                @if (file.omitted) {
+                  <span> · text patch omitted</span>
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <section class="rounded-lg border border-stone-200 bg-stone-50 px-4 py-4 text-sm leading-6 text-stone-700">
+      Patchline reports model-generated findings from the submitted diff. It does not execute the change, apply suggested patches, or decide that code is production-ready.
+    </section>
+
+    <section class="rounded-lg border border-stone-200 bg-white px-4 py-4">
+      @if (!confirmDelete()) {
+        <button type="button" class="text-sm font-medium text-red-800" (click)="confirmDelete.set(true)">Delete this review</button>
+      } @else {
+        <p class="text-sm text-stone-700">Delete this review and its findings from the local database?</p>
+        <div class="mt-3 flex gap-2">
+          <button
+            type="button"
+            class="inline-flex min-h-10 items-center rounded-md bg-red-700 px-3 text-sm font-medium text-white disabled:bg-stone-300"
+            [disabled]="deleting()"
+            (click)="remove()"
+          >
+            Delete review
+          </button>
+          <button type="button" class="inline-flex min-h-10 items-center rounded-md border border-stone-300 px-3 text-sm" (click)="confirmDelete.set(false)">
+            Cancel
+          </button>
+        </div>
+      }
+    </section>
+  </div>
+}

@@ -1,0 +1,123 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-stone-950">History</h1>
+      <p class="mt-1 text-sm text-stone-600">Stored reviews, newest first. Deleting a review removes its findings from this machine.</p>
+    </div>
+    <a
+      routerLink="/reviews/new"
+      class="inline-flex min-h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-medium text-white hover:bg-blue-800"
+    >
+      New review
+    </a>
+  </div>
+
+  @if (error()) {
+    <p class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900" role="alert">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <div class="h-72 animate-pulse rounded-lg border border-stone-200 bg-white"></div>
+  } @else if (total() === 0) {
+    <div class="rounded-lg border border-dashed border-stone-300 bg-white px-4 py-12 text-center">
+      <p class="text-base font-medium text-stone-900">No reviews stored</p>
+      <p class="mx-auto mt-2 max-w-md text-sm text-stone-600">
+        History stays empty until a review is submitted. Failed reviews are kept too, so you can see why an analysis did not finish.
+      </p>
+      <a
+        routerLink="/reviews/new"
+        class="mt-5 inline-flex min-h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-medium text-white hover:bg-blue-800"
+      >
+        Start a review
+      </a>
+    </div>
+  } @else {
+    <div class="overflow-hidden rounded-lg border border-stone-200 bg-white">
+      <ul>
+        @for (review of items(); track review.id) {
+          <li class="border-b border-stone-200 px-4 py-4 last:border-b-0">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <a [routerLink]="['/reviews', review.id]" class="font-medium text-stone-950 hover:text-blue-800">
+                    {{ review.title }}
+                  </a>
+                  <span class="rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset" [class]="statusBadgeClass(review.status)">
+                    {{ statusLabel(review.status) }}
+                  </span>
+                </div>
+                <p class="mt-1 line-clamp-2 text-sm text-stone-600">
+                  {{ review.summary || review.error_message || 'No summary was stored.' }}
+                </p>
+                <p class="mt-2 text-xs text-stone-500">
+                  {{ review.created_at | date: 'medium' }} · {{ sourceLabel(review) }} · {{ review.finding_count }} findings
+                  @if (findingCounts(review)) {
+                    <span> · {{ findingCounts(review) }}</span>
+                  }
+                </p>
+              </div>
+              <div class="flex shrink-0 flex-wrap gap-2">
+                <a
+                  [routerLink]="['/reviews', review.id]"
+                  class="inline-flex min-h-10 items-center rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-800 hover:bg-stone-50"
+                >
+                  Open
+                </a>
+                @if (pendingDelete() !== review.id) {
+                  <button
+                    type="button"
+                    class="inline-flex min-h-10 items-center rounded-md border border-red-300 bg-white px-3 text-sm font-medium text-red-800 hover:bg-red-50"
+                    (click)="pendingDelete.set(review.id)"
+                  >
+                    Delete
+                  </button>
+                }
+              </div>
+            </div>
+            @if (pendingDelete() === review.id) {
+              <div class="mt-3 flex flex-wrap items-center gap-2 rounded-md bg-stone-50 px-3 py-3" role="group" [attr.aria-label]="'Delete ' + review.title">
+                <p class="text-sm text-stone-700">Delete this review permanently?</p>
+                <button
+                  type="button"
+                  class="inline-flex min-h-10 items-center rounded-md bg-red-700 px-3 text-sm font-medium text-white hover:bg-red-800 disabled:bg-stone-300"
+                  [disabled]="deleting()"
+                  (click)="remove(review.id)"
+                >
+                  Delete review
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex min-h-10 items-center rounded-md border border-stone-300 bg-white px-3 text-sm"
+                  (click)="pendingDelete.set(null)"
+                >
+                  Cancel
+                </button>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+      <div class="flex flex-col gap-3 border-t border-stone-200 px-4 py-3 text-sm text-stone-600 sm:flex-row sm:items-center sm:justify-between">
+        <p>Showing {{ pageStart() }}–{{ pageEnd() }} of {{ total() }}</p>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            class="inline-flex min-h-10 items-center rounded-md border border-stone-300 bg-white px-3 disabled:text-stone-400"
+            [disabled]="offset() === 0 || loading()"
+            (click)="previous()"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            class="inline-flex min-h-10 items-center rounded-md border border-stone-300 bg-white px-3 disabled:text-stone-400"
+            [disabled]="pageEnd() >= total() || loading()"
+            (click)="next()"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
