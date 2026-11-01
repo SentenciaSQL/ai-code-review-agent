@@ -1,0 +1,121 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-stone-950">Dashboard</h1>
+      <p class="mt-1 text-sm text-stone-600">Counts and history come from reviews stored on this machine.</p>
+    </div>
+    <a
+      routerLink="/reviews/new"
+      class="inline-flex min-h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-medium text-white hover:bg-blue-800"
+    >
+      New review
+    </a>
+  </div>
+
+  @if (loading()) {
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-hidden="true">
+      @for (item of [1, 2, 3, 4]; track item) {
+        <div class="h-24 animate-pulse rounded-lg border border-stone-200 bg-white"></div>
+      }
+    </div>
+    <div class="h-64 animate-pulse rounded-lg border border-stone-200 bg-white"></div>
+  } @else if (error()) {
+    <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert">
+      {{ error() }}
+    </div>
+  } @else if (stats(); as stats) {
+    <section aria-label="Stored review totals" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <article class="rounded-lg border border-stone-200 bg-white px-4 py-4">
+        <p class="text-sm text-stone-500">Reviews</p>
+        <p class="mt-2 text-3xl font-semibold tracking-tight">{{ stats.total_reviews }}</p>
+        <p class="mt-1 text-xs text-stone-500">
+          {{ stats.completed_reviews }} completed · {{ stats.failed_reviews }} failed
+        </p>
+      </article>
+      <article class="rounded-lg border border-stone-200 bg-white px-4 py-4">
+        <p class="text-sm text-stone-500">Findings</p>
+        <p class="mt-2 text-3xl font-semibold tracking-tight">{{ stats.total_findings }}</p>
+        <p class="mt-1 text-xs text-stone-500">{{ stats.total_suggestions }} suggestions stored separately</p>
+      </article>
+      <article class="rounded-lg border border-stone-200 bg-white px-4 py-4 sm:col-span-2">
+        <p class="text-sm text-stone-500">Findings by severity</p>
+        <dl class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div>
+            <dt class="text-xs font-medium text-red-800">Critical</dt>
+            <dd class="text-xl font-semibold">{{ stats.findings_by_severity.critical }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium text-orange-800">High</dt>
+            <dd class="text-xl font-semibold">{{ stats.findings_by_severity.high }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium text-amber-800">Medium</dt>
+            <dd class="text-xl font-semibold">{{ stats.findings_by_severity.medium }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium text-sky-800">Low</dt>
+            <dd class="text-xl font-semibold">{{ stats.findings_by_severity.low }}</dd>
+          </div>
+        </dl>
+      </article>
+    </section>
+
+    @if (categoryEntries(stats).length) {
+      <section class="rounded-lg border border-stone-200 bg-white px-4 py-4" aria-label="Findings by category">
+        <h2 class="text-sm font-medium text-stone-700">Findings by category</h2>
+        <ul class="mt-3 flex flex-wrap gap-2">
+          @for (entry of categoryEntries(stats); track entry.category) {
+            <li class="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700">
+              {{ categoryLabel(entry.category) }} · {{ entry.count }}
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <section class="overflow-hidden rounded-lg border border-stone-200 bg-white">
+      <div class="flex items-center justify-between border-b border-stone-200 px-4 py-3">
+        <h2 class="text-sm font-semibold text-stone-900">Recent reviews</h2>
+        <a routerLink="/history" class="text-sm font-medium text-blue-800 hover:text-blue-950">View history</a>
+      </div>
+      @if (recent().length === 0) {
+        <div class="px-4 py-10 text-center">
+          <p class="text-base font-medium text-stone-900">No reviews yet</p>
+          <p class="mx-auto mt-2 max-w-md text-sm text-stone-600">
+            Start with a unified Git diff or a GitHub pull request. Completed reviews, including failed attempts, will show up here.
+          </p>
+          <a
+            routerLink="/reviews/new"
+            class="mt-5 inline-flex min-h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-medium text-white hover:bg-blue-800"
+          >
+            Start a review
+          </a>
+        </div>
+      } @else {
+        <ul>
+          @for (review of recent(); track review.id) {
+            <li class="border-b border-stone-200 px-4 py-4 last:border-b-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <a [routerLink]="['/reviews', review.id]" class="font-medium text-stone-950 hover:text-blue-800">
+                  {{ review.title }}
+                </a>
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset" [class]="statusBadgeClass(review.status)">
+                  {{ statusLabel(review.status) }}
+                </span>
+              </div>
+              <p class="mt-1 line-clamp-2 text-sm text-stone-600">
+                {{ review.summary || review.error_message || 'No summary was stored.' }}
+              </p>
+              <p class="mt-2 text-xs text-stone-500">
+                {{ review.created_at | date: 'medium' }} · {{ sourceLabel(review) }} · {{ review.finding_count }} findings
+                @if (findingCounts(review)) {
+                  <span> · {{ findingCounts(review) }}</span>
+                }
+              </p>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</div>

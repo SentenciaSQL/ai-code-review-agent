@@ -1,0 +1,108 @@
+<a
+  href="#main"
+  class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2"
+>
+  Skip to content
+</a>
+
+<div class="min-h-screen bg-stone-100 text-stone-900">
+  <header class="sticky top-0 z-30 flex items-center justify-between border-b border-stone-800 bg-stone-950 px-4 py-3 text-stone-100 lg:hidden">
+    <a routerLink="/" class="flex items-center gap-2 rounded-md" (click)="closeNav()">
+      <span class="flex h-8 w-8 items-center justify-center rounded-md bg-blue-700 text-sm font-semibold text-white">P</span>
+      <span class="text-sm font-semibold tracking-tight">Patchline</span>
+    </a>
+    <button
+      type="button"
+      class="rounded-md border border-stone-700 px-3 py-2 text-sm"
+      (click)="toggleNav()"
+      [attr.aria-expanded]="navOpen()"
+      aria-controls="app-nav"
+    >
+      {{ navOpen() ? 'Close' : 'Menu' }}
+    </button>
+  </header>
+
+  @if (navOpen()) {
+    <button
+      type="button"
+      class="fixed inset-0 z-30 bg-stone-950/50 lg:hidden"
+      (click)="closeNav()"
+      aria-label="Close navigation"
+    ></button>
+  }
+
+  <div class="lg:grid lg:min-h-screen lg:grid-cols-[16.5rem_minmax(0,1fr)]">
+    <aside
+      id="app-nav"
+      class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-stone-800 bg-stone-950 text-stone-300 transition-transform lg:static lg:w-auto lg:translate-x-0"
+      [class.translate-x-0]="navOpen()"
+      [class.max-lg:hidden]="!navOpen()"
+    >
+      <div class="border-b border-stone-800 px-5 py-5">
+        <a routerLink="/" class="flex items-center gap-3 rounded-md" (click)="closeNav()">
+          <span class="flex h-9 w-9 items-center justify-center rounded-md bg-blue-700 font-semibold text-white">P</span>
+          <span>
+            <span class="block text-sm font-semibold tracking-tight text-white">Patchline</span>
+            <span class="block text-xs text-stone-400">Code review</span>
+          </span>
+        </a>
+      </div>
+
+      <nav class="flex-1 space-y-1 px-3 py-4" aria-label="Primary">
+        <a
+          routerLink="/"
+          routerLinkActive="bg-white/10 text-white"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="block rounded-md px-3 py-2 text-sm hover:bg-white/5 hover:text-white"
+        >
+          Dashboard
+        </a>
+        <a
+          routerLink="/reviews/new"
+          routerLinkActive="bg-white/10 text-white"
+          class="block rounded-md px-3 py-2 text-sm hover:bg-white/5 hover:text-white"
+        >
+          New review
+        </a>
+        <a
+          routerLink="/history"
+          routerLinkActive="bg-white/10 text-white"
+          class="block rounded-md px-3 py-2 text-sm hover:bg-white/5 hover:text-white"
+        >
+          History
+        </a>
+      </nav>
+
+      <div class="space-y-2 border-t border-stone-800 px-5 py-4 text-xs leading-5 text-stone-400">
+        @if (workspace.health(); as health) {
+          <p>{{ health.llm_provider }} · {{ health.llm_model }}</p>
+          <p>{{ health.github_token_configured ? 'GitHub token configured' : 'Public GitHub repositories only' }}</p>
+        }
+        <p>Local review tool. Not a multi-user service.</p>
+      </div>
+    </aside>
+
+    <div class="min-w-0">
+      @if (workspace.loaded() && workspace.healthError(); as healthError) {
+        <div class="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 sm:px-6" role="alert">
+          {{ healthError }}
+        </div>
+      } @else if (workspace.loaded() && workspace.health(); as health) {
+        @if (!health.llm_configured) {
+          <div class="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:px-6" role="status">
+            The language model is not ready. Set <span class="font-medium">LLM_API_KEY</span> for api.openai.com, or point
+            <span class="font-medium">LLM_BASE_URL</span> at a local OpenAI-compatible server. Reviews cannot run until that is configured.
+          </div>
+        } @else if (health.database === 'error') {
+          <div class="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 sm:px-6" role="alert">
+            The review database is not reachable. Check DATABASE_PATH and the backend logs.
+          </div>
+        }
+      }
+
+      <main id="main" class="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <router-outlet />
+      </main>
+    </div>
+  </div>
+</div>
